@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Chat</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width:800px; margin:20px auto; padding:10px; }
+    #chat { height:60vh; overflow:auto; border:1px solid #ddd; padding:10px; background:#fafafa; }
+    .msg { padding:6px 8px; border-radius:6px; margin:6px 0; }
+    .me { background:#d1ffd6; text-align:right; }
+    .other { background:#fff; }
+    .meta { font-size:0.8em; color:#666; }
+    footer { position:fixed; left:0; right:0; bottom:0; background:#fff; padding:8px; border-top:1px solid #eee; display:flex; gap:8px; max-width:800px; margin:0 auto; }
+    input[type="text"] { flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; }
+    button { padding:10px 14px; border-radius:8px; border:0; background:#007bff; color:#fff; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <h2>💬 Simple Chat (no login)</h2>
+  <div id="chat"></div>
+
+  <footer>
+    <form id="form" style="display:flex;flex:1;">
+      <input id="input" autocomplete="off" type="text" placeholder="Type a message..." />
+      <button>Send</button>
+    </form>
+  </footer>
+
+  <!-- socket.io client is served automatically at /socket.io/socket.io.js -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // ask for username when page opens
+    let username = prompt("Enter your name:");
+    if (!username) username = "Anonymous";
+
+    const socket = io(); // connects to same origin
+
+    const chat = document.getElementById('chat');
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+
+    // helper to display a message
+    function appendMessage(msg, mine=false){
+      const d = document.createElement('div');
+      d.className = 'msg ' + (mine ? 'me' : 'other');
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const t = new Date(msg.time);
+      meta.textContent = msg.user + ' • ' + t.toLocaleTimeString();
+      const text = document.createElement('div');
+      text.textContent = msg.text;
+      d.appendChild(meta);
+      d.appendChild(text);
+      chat.appendChild(d);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    // receive chat history (array of msgs)
+    socket.on('chat history', (msgs) => {
+      chat.innerHTML = '';
+      msgs.forEach(msg => {
+        appendMessage(msg, msg.user === username);
+      });
+    });
+
+    // receive single new message
+    socket.on('chat message', (msg) => {
+      appendMessage(msg, msg.user === username);
+    });
+
+    // send message
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      const msg = { user: username, text: text, time: new Date().toISOString() };
+      socket.emit('chat message', msg);
+      input.value = '';
+      // show instantly (server will also broadcast back)
+      appendMessage(msg, true);
+    });
+  </script>
+</body>
+</html>
+
